@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import requests
+from io import BytesIO
+
 
 # Função para realizar o login e obter o cookie
 def login(url, data):
@@ -46,9 +48,46 @@ def row_to_data(row):
         'alunoviewmodel[Pessoa][Genero]': row['Genero'],
         # Continue adicionando campos conforme necessário
     }
+# Função de gerar planilha
+def generate_excel_model():
+    # Definindo o modelo da planilha como um DataFrame
+    modelo_df = pd.DataFrame({
+        'IdAluno': [""],
+        'IdCategoriaPretendida': [""],
+        'Nome': [""],
+        'Cpf': [""],
+        'DataNascimento': [""],
+        'Email': [""],
+        'CEP': [""],
+        'IdUF': [""],
+        'IdMunicipio': [""],
+        'Logradouro': [""],
+        'Numero': [""],
+        'Bairro': [""],
+        'IdCategoriaHabilitacao': [""],
+        'Genero': [""],
+        # Adicione mais colunas conforme necessário
+    })
+
+    # Convertendo o DataFrame em um arquivo Excel em memória
+    towrite = BytesIO()
+    modelo_df.to_excel(towrite, index=False)
+
+    towrite.seek(0)  # Retornando ao início do BytesIO para leitura
+    
+    return towrite
+# URL do logotipo
+logo_url = "https://www.prostraining.com.br/Content/img/logotipo/logo-prostraining.svg"
 
 def main():
-    st.title("Upload e Registro de Dados de Alunos")
+    st.image(logo_url, width=400)
+    st.title("Cadastro em lote")
+    # Gerar e oferecer o modelo de planilha para download
+    file_bytes = generate_excel_model()
+    st.download_button(label="Download Modelo de Planilha",
+                       data=file_bytes,
+                       file_name="modelo_planilha.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     with st.form("login_form", clear_on_submit=False):
         id_empresa = st.text_input("ID da Empresa", "")
@@ -56,7 +95,7 @@ def main():
         senha = st.text_input("Senha", type="password")
         submit_button = st.form_submit_button("Login")
 
-    if submit_button:
+    if submit_button:   
         url_login = "https://www.prostraining.com.br/Login/SignIn"
         data_login = {
             "IdEmpresa": id_empresa,
@@ -77,16 +116,14 @@ def main():
         if uploaded_file:
             df = pd.read_excel(uploaded_file)
             if st.button('Enviar Dados'):
-                success, fail = 0, 0
-                for _, row in df.iterrows():
+                for index, row in df.iterrows():
                     response = send_data(row, st.session_state['cookie'], "https://www.prostraining.com.br/Aluno/Salvar")
                     if response and response.status_code == 200:
-                        success += 1
+                        # Exibe uma mensagem de sucesso para cada aluno registrado com sucesso
+                        st.success(f"Registro {index + 1} ({row['Nome']}) enviado com sucesso.")
                     else:
-                        fail += 1
-                st.success(f"{success} registros enviados com sucesso.")
-                if fail > 0:
-                    st.error(f"{fail} registros falharam ao enviar.")
+                        # Você também pode mostrar falhas, se desejar
+                        st.error(f"Registro {index + 1} ({row['Nome']}) falhou ao enviar.")
 
 if __name__ == "__main__":
     main()
